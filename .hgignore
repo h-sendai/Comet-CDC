@@ -1,0 +1,14 @@
+syntax: glob
+.depend
+*.o
+*.d
+*~
+autogen
+.confFilePath
+omninames*
+rtc.conf
+CometCdcReader/CometCdcReaderComp
+CometCdcMonitor/CometCdcMonitorComp
+*.old
+*.0
+*.1
