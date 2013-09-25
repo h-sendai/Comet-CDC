@@ -1,5 +1,6 @@
 SUBDIRS += CometCdcReader
 SUBDIRS += CometCdcMonitor
+SUBDIRS += CometCdcLogger
 
 .PHONY: $(SUBDIRS)
 
