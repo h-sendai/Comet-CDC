@@ -154,7 +154,7 @@ int CometCdcReader::daq_start()
     m_out_status = BUF_SUCCESS;
 
     m_data = (unsigned char *) malloc(COMET_CDC_HEADER_BYTE_SIZE
-                + COMET_CDC_N_CHANNEL*COMET_CDC_ONE_EVENT_BYTE_SIZE*m_n_sampling);
+                + COMET_CDC_N_CHANNEL*COMET_CDC_ONE_EVENT_BYTE_SIZE*m_n_sampling*2);
     if (m_data == NULL) {
         fatal_error_report(USER_DEFINED_ERROR1, "MALLOC FOR READBUF");
     }
@@ -216,8 +216,10 @@ int CometCdcReader::read_data_from_detectors()
 
     /// write your logic here
     /// read read_byte_size from COMET CDC readout module
+    /// *2: ADC and TDC: ADC ch 64, TDC ch 64
     int read_byte_size = COMET_CDC_HEADER_BYTE_SIZE +
-                            COMET_CDC_N_CHANNEL*COMET_CDC_ONE_EVENT_BYTE_SIZE*m_n_sampling;
+                            COMET_CDC_N_CHANNEL*COMET_CDC_ONE_EVENT_BYTE_SIZE*m_n_sampling*2;
+
 
     //int status = m_sock->readAll(m_data, SEND_BUFFER_SIZE);
     int status = m_sock->readAll(m_data, read_byte_size);
