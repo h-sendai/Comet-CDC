@@ -35,7 +35,9 @@ CometCdcReader::CometCdcReader(RTC::Manager* manager)
     : DAQMW::DaqComponentBase(manager),
       m_OutPort("cometcdcreader_out", m_out_data),
       m_sock(0),
+      m_data(NULL),
       m_recv_byte_size(0),
+      m_n_sampling(30),
       m_out_status(BUF_SUCCESS),
 
       m_debug(false)
@@ -116,8 +118,16 @@ int CometCdcReader::parse_params(::NVList* list)
             char* offset;
             m_srcPort = (int)strtol(svalue.c_str(), &offset, 10);
         }
+        if (sname == "n_sampling") {
+            if (m_debug) {
+                std::cerr << "n_sampling: " << svalue << std::endl;
+            }
+            char* offset;
+            m_n_sampling = (int)strtol(svalue.c_str(), &offset, 10);
+        }
 
     }
+
     if (!srcAddrSpecified) {
         std::cerr << "### ERROR:data source address not specified\n";
         fatal_error_report(USER_DEFINED_ERROR1, "NO SRC ADDRESS");
@@ -143,6 +153,12 @@ int CometCdcReader::daq_start()
 
     m_out_status = BUF_SUCCESS;
 
+    m_data = (unsigned char *) malloc(COMET_CDC_HEADER_BYTE_SIZE
+                + COMET_CDC_N_CHANNEL*COMET_CDC_ONE_EVENT_BYTE_SIZE*m_n_sampling);
+    if (m_data == NULL) {
+        fatal_error_report(USER_DEFINED_ERROR1, "MALLOC FOR READBUF");
+    }
+        
     try {
         // Create socket and connect to data server.
         m_sock = new DAQMW::Sock();
@@ -175,6 +191,8 @@ int CometCdcReader::daq_stop()
         m_sock = 0;
     }
 
+    free(m_data);
+
     return 0;
 }
 
@@ -197,8 +215,12 @@ int CometCdcReader::read_data_from_detectors()
     int received_data_size = 0;
 
     /// write your logic here
-    /// read 1024 byte data from data server
-    int status = m_sock->readAll(m_data, SEND_BUFFER_SIZE);
+    /// read read_byte_size from COMET CDC readout module
+    int read_byte_size = COMET_CDC_HEADER_BYTE_SIZE +
+                            COMET_CDC_N_CHANNEL*COMET_CDC_ONE_EVENT_BYTE_SIZE*m_n_sampling;
+
+    //int status = m_sock->readAll(m_data, SEND_BUFFER_SIZE);
+    int status = m_sock->readAll(m_data, read_byte_size);
     if (status == DAQMW::Sock::ERROR_FATAL) {
         std::cerr << "### ERROR: m_sock->readAll" << std::endl;
         fatal_error_report(USER_DEFINED_ERROR1, "SOCKET FATAL ERROR");
@@ -208,7 +230,7 @@ int CometCdcReader::read_data_from_detectors()
         fatal_error_report(USER_DEFINED_ERROR2, "SOCKET TIMEOUT");
     }
     else {
-        received_data_size = SEND_BUFFER_SIZE;
+        received_data_size = read_byte_size;
     }
 
     return received_data_size;

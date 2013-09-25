@@ -52,10 +52,15 @@ private:
 
     DAQMW::Sock* m_sock;               /// socket for data server
 
-    static const int EVENT_BYTE_SIZE  = 8;    // event byte size
-    static const int SEND_BUFFER_SIZE = 1024; //
-    unsigned char m_data[SEND_BUFFER_SIZE];
+    //static const int EVENT_BYTE_SIZE  = 8;    // event byte size
+    //static const int SEND_BUFFER_SIZE = 1024; //
+    //unsigned char m_data[SEND_BUFFER_SIZE];
+    unsigned char *m_data;
     unsigned int  m_recv_byte_size;
+    static const int COMET_CDC_HEADER_BYTE_SIZE    = 12;
+    static const int COMET_CDC_ONE_EVENT_BYTE_SIZE = 2;
+    static const int COMET_CDC_N_CHANNEL           = 64;
+    unsigned int  m_n_sampling;
 
     BufferStatus m_out_status;
 
