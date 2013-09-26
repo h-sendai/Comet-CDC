@@ -86,12 +86,14 @@ int CometCdcReader::daq_configure()
     paramList = m_daq_service0.getCompParams();
     parse_params(paramList);
 
-    for (unsigned int i = 0; i < m_module_list.size(); i++) {
-        if (set_window_size(m_module_list[i].ip_address, m_window_size) < 0) {
-            fatal_error_report(USER_DEFINED_ERROR1, "CANNOT SET WINDOW SIZE");
-        }
-        if (set_packet_id(m_module_list[i].ip_address, m_module_list[i].module_num) < 0) {
-            fatal_error_report(USER_DEFINED_ERROR1, "CANNOT SET MODULE NUM");
+    if (m_set_registers) {
+        for (unsigned int i = 0; i < m_module_list.size(); i++) {
+            if (set_window_size(m_module_list[i].ip_address, m_window_size) < 0) {
+                fatal_error_report(USER_DEFINED_ERROR1, "CANNOT SET WINDOW SIZE");
+            }
+            if (set_packet_id(m_module_list[i].ip_address, m_module_list[i].module_num) < 0) {
+                fatal_error_report(USER_DEFINED_ERROR1, "CANNOT SET MODULE NUM");
+            }
         }
     }
 
