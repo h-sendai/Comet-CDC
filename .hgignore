@@ -9,6 +9,7 @@ omninames*
 rtc.conf
 CometCdcReader/CometCdcReaderComp
 CometCdcMonitor/CometCdcMonitorComp
+CometCdcLogger/CometCdcLoggerComp
 *.old
 *.0
 *.1
