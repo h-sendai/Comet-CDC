@@ -38,6 +38,7 @@ CometCdcReader::CometCdcReader(RTC::Manager* manager)
       m_data(NULL),
       m_recv_byte_size(0),
       m_window_size(30),
+      m_set_registers(true),
       m_out_status(BUF_SUCCESS),
 
       m_debug(false)
@@ -133,7 +134,17 @@ int CometCdcReader::parse_params(::NVList* list)
             char* offset;
             m_window_size = (int)strtol(svalue.c_str(), &offset, 10);
         }
-
+        if (sname == "setRegisters") {
+            if (m_debug) {
+                std::cerr << "setRegisters: " << svalue << std::endl;
+            }
+            if (svalue == "yes" || svalue == "Yes" || svalue == "YES") {
+                m_set_registers = true;
+            }
+            else {
+                m_set_registers = false;
+            }
+        }
     }
 
     if (ip_addresses.size() != ports.size()) {

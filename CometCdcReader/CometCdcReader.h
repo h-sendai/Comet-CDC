@@ -69,6 +69,7 @@ private:
     static const int COMET_CDC_ONE_EVENT_BYTE_SIZE = 2;
     static const int COMET_CDC_N_CHANNEL           = 64;
     unsigned int  m_window_size;
+    bool          m_set_registers;
 
     BufferStatus m_out_status;
 

@@ -26,6 +26,7 @@
                         <outPort>cometcdcreader_out</outPort>
                     </outPorts>
                     <params>
+                        <param pid="setRegisters">yes</param>
                         <param pid="srcAddr">192.168.10.16</param>
                         <param pid="srcPort">24</param>
                         <!--
