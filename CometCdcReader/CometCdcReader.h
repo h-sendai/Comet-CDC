@@ -16,6 +16,12 @@
 
 using namespace RTC;
 
+struct module_info {
+    std::string ip_address;
+    int         port;
+    int         module_num;
+};
+
 class CometCdcReader
     : public DAQMW::DaqComponentBase
 {
@@ -49,6 +55,8 @@ private:
     int read_data_from_detectors();
     int set_data(unsigned int data_byte_size);
     int write_OutPort();
+    int set_window_size(std::string ip_address, int window_size);
+    int set_packet_id(std::string ip_address, int module_num);
 
     DAQMW::Sock* m_sock;               /// socket for data server
 
@@ -60,12 +68,14 @@ private:
     static const int COMET_CDC_HEADER_BYTE_SIZE    = 12;
     static const int COMET_CDC_ONE_EVENT_BYTE_SIZE = 2;
     static const int COMET_CDC_N_CHANNEL           = 64;
-    unsigned int  m_n_sampling;
+    unsigned int  m_window_size;
 
     BufferStatus m_out_status;
 
     int m_srcPort;                        /// Port No. of data server
     std::string m_srcAddr;                /// IP addr. of data server
+    
+    std::vector <struct module_info> m_module_list;
 
     bool m_debug;
 };

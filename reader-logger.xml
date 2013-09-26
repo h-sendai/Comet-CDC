@@ -28,7 +28,15 @@
                     <params>
                         <param pid="srcAddr">192.168.10.16</param>
                         <param pid="srcPort">24</param>
-                        <param pid="n_sampling">30</param>
+                        <!--
+                        <param pid="srcAddr">192.168.10.17</param>
+                        <param pid="srcPort">24</param>
+                        <param pid="srcAddr">192.168.10.18</param>
+                        <param pid="srcPort">24</param>
+                        <param pid="srcAddr">192.168.10.19</param>
+                        <param pid="srcPort">24</param>
+                        -->
+                        <param pid="windowSize">30</param>
                     </params>
                 </component>
                 <component cid="CometCdcLogger0">

@@ -37,7 +37,7 @@ CometCdcReader::CometCdcReader(RTC::Manager* manager)
       m_sock(0),
       m_data(NULL),
       m_recv_byte_size(0),
-      m_n_sampling(30),
+      m_window_size(30),
       m_out_status(BUF_SUCCESS),
 
       m_debug(false)
@@ -85,15 +85,23 @@ int CometCdcReader::daq_configure()
     paramList = m_daq_service0.getCompParams();
     parse_params(paramList);
 
+    for (unsigned int i = 0; i < m_module_list.size(); i++) {
+        if (set_window_size(m_module_list[i].ip_address, m_window_size) < 0) {
+            fatal_error_report(USER_DEFINED_ERROR1, "CANNOT SET WINDOW SIZE");
+        }
+        if (set_packet_id(m_module_list[i].ip_address, m_module_list[i].module_num) < 0) {
+            fatal_error_report(USER_DEFINED_ERROR1, "CANNOT SET MODULE NUM");
+        }
+    }
+
     return 0;
 }
 
 int CometCdcReader::parse_params(::NVList* list)
 {
-    bool srcAddrSpecified = false;
-    bool srcPortSpecified = false;
-
     std::cerr << "param list length:" << (*list).length() << std::endl;
+    std::vector<std::string> ip_addresses;
+    std::vector<int>         ports;
 
     int len = (*list).length();
     for (int i = 0; i < len; i+=2) {
@@ -104,37 +112,46 @@ int CometCdcReader::parse_params(::NVList* list)
         std::cerr << "value: " << svalue << std::endl;
 
         if ( sname == "srcAddr" ) {
-            srcAddrSpecified = true;
             if (m_debug) {
                 std::cerr << "source addr: " << svalue << std::endl;
             }
-            m_srcAddr = svalue;
+            ip_addresses.push_back(svalue);
+            //m_srcAddr = svalue;
         }
         if ( sname == "srcPort" ) {
-            srcPortSpecified = true;
             if (m_debug) {
                 std::cerr << "source port: " << svalue << std::endl;
             }
             char* offset;
             m_srcPort = (int)strtol(svalue.c_str(), &offset, 10);
+            ports.push_back(m_srcPort);
         }
-        if (sname == "n_sampling") {
+        if (sname == "windowSize") {
             if (m_debug) {
-                std::cerr << "n_sampling: " << svalue << std::endl;
+                std::cerr << "window_size: " << svalue << std::endl;
             }
             char* offset;
-            m_n_sampling = (int)strtol(svalue.c_str(), &offset, 10);
+            m_window_size = (int)strtol(svalue.c_str(), &offset, 10);
         }
 
     }
 
-    if (!srcAddrSpecified) {
-        std::cerr << "### ERROR:data source address not specified\n";
-        fatal_error_report(USER_DEFINED_ERROR1, "NO SRC ADDRESS");
+    if (ip_addresses.size() != ports.size()) {
+        fatal_error_report(USER_DEFINED_ERROR1, "NUM OF IP ADDR/PORT MISMATCH");
     }
-    if (!srcPortSpecified) {
-        std::cerr << "### ERROR:data source port not specified\n";
-        fatal_error_report(USER_DEFINED_ERROR2, "NO SRC PORT");
+
+    module_info mi;
+    for (unsigned int i = 0; i < ip_addresses.size(); i++) {
+        mi.ip_address = ip_addresses[i];
+        mi.port       = ports[i];
+        mi.module_num = i;
+        m_module_list.push_back(mi);
+    }
+    
+    for (unsigned int i = 0; i < m_module_list.size(); i++) {
+        std::cerr << "ip_address: " << m_module_list[i].ip_address << std::endl;
+        std::cerr << "port:       " << m_module_list[i].port       << std::endl;
+        std::cerr << "module_num: " << m_module_list[i].module_num << std::endl;
     }
 
     return 0;
@@ -154,7 +171,7 @@ int CometCdcReader::daq_start()
     m_out_status = BUF_SUCCESS;
 
     m_data = (unsigned char *) malloc(COMET_CDC_HEADER_BYTE_SIZE
-                + COMET_CDC_N_CHANNEL*COMET_CDC_ONE_EVENT_BYTE_SIZE*m_n_sampling*2);
+                + COMET_CDC_N_CHANNEL*COMET_CDC_ONE_EVENT_BYTE_SIZE*m_window_size*2);
     if (m_data == NULL) {
         fatal_error_report(USER_DEFINED_ERROR1, "MALLOC FOR READBUF");
     }
@@ -218,7 +235,7 @@ int CometCdcReader::read_data_from_detectors()
     /// read read_byte_size from COMET CDC readout module
     /// *2: ADC and TDC: ADC ch 64, TDC ch 64
     int read_byte_size = COMET_CDC_HEADER_BYTE_SIZE +
-                            COMET_CDC_N_CHANNEL*COMET_CDC_ONE_EVENT_BYTE_SIZE*m_n_sampling*2;
+                            COMET_CDC_N_CHANNEL*COMET_CDC_ONE_EVENT_BYTE_SIZE*m_window_size*2;
 
 
     //int status = m_sock->readAll(m_data, SEND_BUFFER_SIZE);
