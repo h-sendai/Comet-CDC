@@ -26,8 +26,8 @@
                         <outPort>cometcdcreader_out</outPort>
                     </outPorts>
                     <params>
-                        <param pid="srcAddr">127.0.0.1</param>
-                        <param pid="srcPort">2222</param>
+                        <param pid="srcAddr">192.168.10.16</param>
+                        <param pid="srcPort">24</param>
                         <param pid="n_sampling">30</param>
                     </params>
                 </component>
@@ -44,7 +44,7 @@
                    <outPorts/>
                    <params>
                       <param pid="dirName">/home/sendai/Logs</param>
-                      <param pid="isLogging">no</param>
+                      <param pid="isLogging">yes</param>
                       <param pid="maxFileSizeInMegaByte">1024</param>
                    </params>
                 </component>
