@@ -296,6 +296,7 @@ int SitcpRbcp::write_registers(std::string ip_address, int address, int length, 
                 std::cerr << std::hex << std::showbase;
                 std::cerr << "write_registers(): re read fail. try to write " << buf[i] << ", but set " << re_read_buf[i] << std::endl;
                 std::cerr << std::dec;
+                ret = -1;
             }
         }
     }
