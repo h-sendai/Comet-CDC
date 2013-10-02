@@ -196,6 +196,7 @@ int CometCdcReader::daq_start()
         for (unsigned int i = 0; i < m_module_list.size(); i++) {
             m_module_list[i].Sock = DAQMW::Sock(m_module_list[i].ip_address, m_module_list[i].port);
             m_module_list[i].Sock.createTCP();
+            m_module_list[i].Sock.setOptRecvBuf(16*1024*1024);
         }
     } catch (DAQMW::SockException& e) {
         std::cerr << "Sock Fatal Error : " << e.what() << std::endl;
