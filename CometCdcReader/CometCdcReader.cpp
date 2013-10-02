@@ -388,18 +388,27 @@ int CometCdcReader::daq_run()
                 fatal_error_report(USER_DEFINED_ERROR1, "READLL() FATAL ERROR");
             }
         }
-    }
 
-    for (unsigned int i = 0; i < n_readable; i++) {
+        // Read from one socket done.  Now trying to write outport
         set_data(m_module_list[i].buf, m_read_byte_size);
-        if (write_OutPort() < 0) {
-            ;
+        unsigned int max_retry = 1024;
+        for (unsigned int retry = 0; retry < max_retry; retry ++) {
+            if (write_OutPort() == 0) { // write success
+                break; // exit retry loop
+            }
+            else if (retry == (max_retry - 1)) {
+                fprintfwt(stderr, "retry count due to BUF_TIMEOUT exceeds max_retry: %s\n",
+                    mi->ip_address.c_str());
+                fatal_error_report(USER_DEFINED_ERROR1, "BUF_TIMEOUT");
+            }
+            else {
+                fprintfwt(stderr, "BUF_TIMEOUT retry: %d for %s\n", retry, mi->ip_address.c_str());
+            }
         }
-        else {
-            inc_sequence_num();
-            inc_total_data_size(m_read_byte_size);
-        }
-    }
+        inc_sequence_num();
+        inc_total_data_size(m_read_byte_size);
+    } // epoll readable loop
+
     return 0;
 }
 

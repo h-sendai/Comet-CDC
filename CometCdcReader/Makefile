@@ -5,6 +5,7 @@ all: $(COMP_NAME)Comp
 SRCS += $(COMP_NAME).cpp
 SRCS += $(COMP_NAME)Comp.cpp
 SRCS += CometCdcSetRegisters.cpp
+SRCS += logUtil.cpp
 
 CXXFLAGS += -g
 

@@ -10,11 +10,12 @@
 #ifndef COMETCDCREADER_H
 #define COMETCDCREADER_H
 
-#include "DaqComponentBase.h"
-
 #include <sys/epoll.h>
 #include <daqmw/Sock.h>
 #include <err.h>
+
+#include "DaqComponentBase.h"
+#include "logUtil.h"
 
 using namespace RTC;
 
