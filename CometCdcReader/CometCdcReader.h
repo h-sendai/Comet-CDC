@@ -12,14 +12,18 @@
 
 #include "DaqComponentBase.h"
 
+#include <sys/epoll.h>
 #include <daqmw/Sock.h>
+#include <err.h>
 
 using namespace RTC;
 
 struct module_info {
+    DAQMW::Sock Sock;
     std::string ip_address;
     int         port;
     int         module_num;
+    unsigned char buf[16*1024]; // 16kB buffer
 };
 
 class CometCdcReader
@@ -52,23 +56,21 @@ private:
     int daq_resume();
 
     int parse_params(::NVList* list);
-    int read_data_from_detectors();
-    int set_data(unsigned int data_byte_size);
+    int set_data(unsigned char *buf, unsigned int data_byte_size);
     int write_OutPort();
     int set_window_size(std::string ip_address, int window_size);
     int set_packet_id(std::string ip_address, int module_num);
 
     DAQMW::Sock* m_sock;               /// socket for data server
 
-    //static const int EVENT_BYTE_SIZE  = 8;    // event byte size
-    //static const int SEND_BUFFER_SIZE = 1024; //
-    //unsigned char m_data[SEND_BUFFER_SIZE];
-    unsigned char *m_data;
     unsigned int  m_recv_byte_size;
     static const int COMET_CDC_HEADER_BYTE_SIZE    = 12;
     static const int COMET_CDC_ONE_EVENT_BYTE_SIZE = 2;
     static const int COMET_CDC_N_CHANNEL           = 64;
     unsigned int  m_window_size;
+    unsigned int  m_read_byte_size;
+    int m_epfd;
+    struct epoll_event *m_ev_ret;
     bool          m_set_registers;
 
     BufferStatus m_out_status;

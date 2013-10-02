@@ -6,6 +6,8 @@ SRCS += $(COMP_NAME).cpp
 SRCS += $(COMP_NAME)Comp.cpp
 SRCS += CometCdcSetRegisters.cpp
 
+CXXFLAGS += -g
+
 # Socket library
 LDLIBS += -L$(DAQMW_LIB_DIR) -lSock
 

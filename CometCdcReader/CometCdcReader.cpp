@@ -35,9 +35,11 @@ CometCdcReader::CometCdcReader(RTC::Manager* manager)
     : DAQMW::DaqComponentBase(manager),
       m_OutPort("cometcdcreader_out", m_out_data),
       m_sock(0),
-      m_data(NULL),
       m_recv_byte_size(0),
       m_window_size(30),
+      m_read_byte_size(0),
+      m_epfd(-1),
+      m_ev_ret(NULL),
       m_set_registers(true),
       m_out_status(BUF_SUCCESS),
 
@@ -119,7 +121,6 @@ int CometCdcReader::parse_params(::NVList* list)
                 std::cerr << "source addr: " << svalue << std::endl;
             }
             ip_addresses.push_back(svalue);
-            //m_srcAddr = svalue;
         }
         if ( sname == "srcPort" ) {
             if (m_debug) {
@@ -158,14 +159,20 @@ int CometCdcReader::parse_params(::NVList* list)
         mi.ip_address = ip_addresses[i];
         mi.port       = ports[i];
         mi.module_num = i;
+        memset(&(mi.buf), 0, sizeof(mi.buf));
         m_module_list.push_back(mi);
     }
+
+    m_read_byte_size =  COMET_CDC_HEADER_BYTE_SIZE
+                      + COMET_CDC_N_CHANNEL*COMET_CDC_ONE_EVENT_BYTE_SIZE*m_window_size*2;
     
     for (unsigned int i = 0; i < m_module_list.size(); i++) {
         std::cerr << "ip_address: " << m_module_list[i].ip_address << std::endl;
         std::cerr << "port:       " << m_module_list[i].port       << std::endl;
         std::cerr << "module_num: " << m_module_list[i].module_num << std::endl;
     }
+    std::cerr << "m_window_size:    " << m_window_size    << std::endl;
+    std::cerr << "m_read_byte_size: " << m_read_byte_size << std::endl;
 
     return 0;
 }
@@ -173,6 +180,7 @@ int CometCdcReader::parse_params(::NVList* list)
 int CometCdcReader::daq_unconfigure()
 {
     std::cerr << "*** CometCdcReader::unconfigure" << std::endl;
+    m_module_list.clear();
 
     return 0;
 }
@@ -183,16 +191,12 @@ int CometCdcReader::daq_start()
 
     m_out_status = BUF_SUCCESS;
 
-    m_data = (unsigned char *) malloc(COMET_CDC_HEADER_BYTE_SIZE
-                + COMET_CDC_N_CHANNEL*COMET_CDC_ONE_EVENT_BYTE_SIZE*m_window_size*2);
-    if (m_data == NULL) {
-        fatal_error_report(USER_DEFINED_ERROR1, "MALLOC FOR READBUF");
-    }
-        
+    // Create socket (not yet connected)
     try {
-        // Create socket and connect to data server.
-        m_sock = new DAQMW::Sock();
-        m_sock->connect(m_srcAddr, m_srcPort);
+        for (unsigned int i = 0; i < m_module_list.size(); i++) {
+            m_module_list[i].Sock = DAQMW::Sock(m_module_list[i].ip_address, m_module_list[i].port);
+            m_module_list[i].Sock.createTCP();
+        }
     } catch (DAQMW::SockException& e) {
         std::cerr << "Sock Fatal Error : " << e.what() << std::endl;
         fatal_error_report(USER_DEFINED_ERROR1, "SOCKET FATAL ERROR");
@@ -201,12 +205,64 @@ int CometCdcReader::daq_start()
         fatal_error_report(USER_DEFINED_ERROR1, "SOCKET FATAL ERROR");
     }
 
+    // debug
+    for (unsigned int i = 0; i < m_module_list.size(); i++) {
+        std::cerr << "sockfd: " << m_module_list[i].ip_address << " "
+                  << m_module_list[i].Sock.getSockFd() << std::endl;
+    }
+
+    // Epoll handler and data structure
+    m_epfd = epoll_create(m_module_list.size());
+    if (m_epfd < 0) {
+        warn("epoll_create: ");
+        fatal_error_report(USER_DEFINED_ERROR1, "EPOLL FD CREATION ERROR");
+    }
+
+    // debug
+    std::cerr << "m_epfd: " << m_epfd << std::endl;
+
+    struct epoll_event ev;
+    for (unsigned int i = 0; i < m_module_list.size(); i++) {
+        memset(&ev, 0, sizeof(ev));
+        ev.events = EPOLLIN;
+        ev.data.ptr = &(m_module_list[i]);
+        int sockfd = m_module_list[i].Sock.getSockFd();
+        std::cerr << "sockfd: " << sockfd << std::endl;
+        if (epoll_ctl(m_epfd, EPOLL_CTL_ADD, m_module_list[i].Sock.getSockFd(), &ev) < 0) {
+            warn("epoll_ctl");
+            fatal_error_report(USER_DEFINED_ERROR1, "EPOLL CTL ADD ERROR");
+        }
+    }
+    // Prepare for epoll_wait return data
+    m_ev_ret = (struct epoll_event *)malloc(sizeof(struct epoll_event)*m_module_list.size());
+    if (m_ev_ret == NULL) {
+        warn("malloc for m_ev_ret");
+        fatal_error_report(USER_DEFINED_ERROR1, "MALLOC FOR m_ev_ret");
+    }
+
+    // Connect
+    for (unsigned int i = 0; i < m_module_list.size(); i++) {
+        int status = m_module_list[i].Sock.connectTCP();
+        if (status != DAQMW::Sock::SUCCESS) {
+            if (status == DAQMW::Sock::ERROR_TIMEOUT) {
+                std::cerr << "Connect timeout for " << m_module_list[i].ip_address << std::endl;;
+            }
+            if (status == DAQMW::Sock::ERROR_FATAL) {
+                std::cerr << "Fatal eror for " << m_module_list[i].ip_address << std::endl;;
+            }
+            fatal_error_report(USER_DEFINED_ERROR1, "CONNECTION ERROR");
+        }
+    }
+        
     // Check data port connections
     bool outport_conn = check_dataPort_connections( m_OutPort );
     if (!outport_conn) {
         std::cerr << "### NO Connection" << std::endl;
         fatal_error_report(DATAPATH_DISCONNECTED);
     }
+
+    //debug
+    std::cerr << "m_module_list size: " << m_module_list.size() << std::endl;
 
     return 0;
 }
@@ -215,13 +271,20 @@ int CometCdcReader::daq_stop()
 {
     std::cerr << "*** CometCdcReader::stop" << std::endl;
 
-    if (m_sock) {
-        m_sock->disconnect();
-        delete m_sock;
-        m_sock = 0;
+    for (unsigned int i = 0; i < m_module_list.size(); i++) {
+        if (epoll_ctl(m_epfd, EPOLL_CTL_DEL, m_module_list[i].Sock.getSockFd(), NULL) < 0) {
+            warn("epoll_ctl DEL for %s", m_module_list[i].ip_address.c_str());
+        }
+        m_module_list[i].Sock.disconnect();
+    }
+    if (close(m_epfd) < 0) {
+        warn("close for epoll file descriptor");
+        fatal_error_report(USER_DEFINED_ERROR1, "CLOSE ERROR FOR EPOLL FD");
     }
 
-    free(m_data);
+    if (m_ev_ret != NULL) {
+        free(m_ev_ret);
+    }
 
     return 0;
 }
@@ -240,35 +303,7 @@ int CometCdcReader::daq_resume()
     return 0;
 }
 
-int CometCdcReader::read_data_from_detectors()
-{
-    int received_data_size = 0;
-
-    /// write your logic here
-    /// read read_byte_size from COMET CDC readout module
-    /// *2: ADC and TDC: ADC ch 64, TDC ch 64
-    int read_byte_size = COMET_CDC_HEADER_BYTE_SIZE +
-                            COMET_CDC_N_CHANNEL*COMET_CDC_ONE_EVENT_BYTE_SIZE*m_window_size*2;
-
-
-    //int status = m_sock->readAll(m_data, SEND_BUFFER_SIZE);
-    int status = m_sock->readAll(m_data, read_byte_size);
-    if (status == DAQMW::Sock::ERROR_FATAL) {
-        std::cerr << "### ERROR: m_sock->readAll" << std::endl;
-        fatal_error_report(USER_DEFINED_ERROR1, "SOCKET FATAL ERROR");
-    }
-    else if (status == DAQMW::Sock::ERROR_TIMEOUT) {
-        std::cerr << "### Timeout: m_sock->readAll" << std::endl;
-        fatal_error_report(USER_DEFINED_ERROR2, "SOCKET TIMEOUT");
-    }
-    else {
-        received_data_size = read_byte_size;
-    }
-
-    return received_data_size;
-}
-
-int CometCdcReader::set_data(unsigned int data_byte_size)
+int CometCdcReader::set_data(unsigned char *read_buf, unsigned int data_byte_size)
 {
     unsigned char header[8];
     unsigned char footer[8];
@@ -279,7 +314,7 @@ int CometCdcReader::set_data(unsigned int data_byte_size)
     ///set OutPort buffer length
     m_out_data.data.length(data_byte_size + HEADER_BYTE_SIZE + FOOTER_BYTE_SIZE);
     memcpy(&(m_out_data.data[0]), &header[0], HEADER_BYTE_SIZE);
-    memcpy(&(m_out_data.data[HEADER_BYTE_SIZE]), &m_data[0], data_byte_size);
+    memcpy(&(m_out_data.data[HEADER_BYTE_SIZE]), &read_buf[0], data_byte_size);
     memcpy(&(m_out_data.data[HEADER_BYTE_SIZE + data_byte_size]), &footer[0],
            FOOTER_BYTE_SIZE);
 
@@ -298,6 +333,7 @@ int CometCdcReader::write_OutPort()
             fatal_error_report(OUTPORT_ERROR);
         }
         if (m_out_status == BUF_TIMEOUT) { // Timeout
+            std::cerr << "BUF_TIMEOUT" << std::endl;
             return -1;
         }
     }
@@ -319,22 +355,51 @@ int CometCdcReader::daq_run()
         return 0;
     }
 
-    if (m_out_status == BUF_SUCCESS) {   // previous OutPort.write() successfully done
-        int ret = read_data_from_detectors();
-        if (ret > 0) {
-            m_recv_byte_size = ret;
-            set_data(m_recv_byte_size); // set data to OutPort Buffer
+//    if (m_out_status == BUF_SUCCESS) {   // previous OutPort.write() successfully done
+//        int ret = read_data_from_detectors();
+//        if (ret > 0) {
+//            m_recv_byte_size = ret;
+//            set_data(m_recv_byte_size); // set data to OutPort Buffer
+//        }
+//    }
+//
+//    if (write_OutPort() < 0) {
+//        ;     // Timeout. do nothing.
+//    }
+//    else {    // OutPort write successfully done
+//        inc_sequence_num();                     // increase sequence num.
+//        inc_total_data_size(m_recv_byte_size);  // increase total data byte size
+//    }
+
+    // Wait for packet.  Timeout is 2000 ms (2 seconds)
+    unsigned int n_readable = epoll_wait(m_epfd, m_ev_ret, m_module_list.size(), 2000);
+    module_info *mi;
+    int status;
+    for (unsigned int i = 0; i < n_readable; i++) {
+        mi = (module_info *)m_ev_ret[i].data.ptr;
+        status = mi->Sock.readAll(mi->buf, m_read_byte_size);
+        if (status != DAQMW::Sock::SUCCESS) {
+            if (status == DAQMW::Sock::ERROR_TIMEOUT) {
+                std::cerr << "readAll() timeout for " << mi->ip_address << std::endl;
+                fatal_error_report(USER_DEFINED_ERROR1, "READLL() TIMEOUT");
+            }
+            else if (status == DAQMW::Sock::ERROR_FATAL) {
+                std::cerr << "readAll() fatal error for  " << mi->ip_address << std::endl;
+                fatal_error_report(USER_DEFINED_ERROR1, "READLL() FATAL ERROR");
+            }
         }
     }
 
-    if (write_OutPort() < 0) {
-        ;     // Timeout. do nothing.
+    for (unsigned int i = 0; i < n_readable; i++) {
+        set_data(m_module_list[i].buf, m_read_byte_size);
+        if (write_OutPort() < 0) {
+            ;
+        }
+        else {
+            inc_sequence_num();
+            inc_total_data_size(m_read_byte_size);
+        }
     }
-    else {    // OutPort write successfully done
-        inc_sequence_num();                     // increase sequence num.
-        inc_total_data_size(m_recv_byte_size);  // increase total data byte size
-    }
-
     return 0;
 }
 
