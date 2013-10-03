@@ -336,7 +336,7 @@ int CometCdcReader::write_OutPort()
             fatal_error_report(OUTPORT_ERROR);
         }
         if (m_out_status == BUF_TIMEOUT) { // Timeout
-            std::cerr << "BUF_TIMEOUT" << std::endl;
+            // std::cerr << "BUF_TIMEOUT" << std::endl;
             return -1;
         }
     }
@@ -356,6 +356,31 @@ int CometCdcReader::daq_run()
     if (check_trans_lock()) {  // check if stop command has come
         set_trans_unlock();    // transit to CONFIGURED state
         return 0;
+    }
+
+    if (m_out_status == BUF_TIMEOUT) {
+        // retry to write outport without set_data
+        // set_data was done in previous daq_run().
+        unsigned int max_retry = 1024;
+        for (unsigned int retry = 0; retry < max_retry; retry ++) {
+            if (write_OutPort() == 0) { // write success
+                inc_sequence_num();
+                inc_total_data_size(m_read_byte_size);
+                break; // exit retry loop
+            }
+            else if (retry == (max_retry - 1)) {
+                fprintfwt(stderr, "retry #1: BUF_TIMEOUT retry\n");
+                fprintfwt(stderr, "retry #1: retry count due to BUF_TIMEOUT exceeds max_retry\n");
+                return 0;
+            }
+            else {
+                fprintfwt(stderr, "retry #1: BUF_TIMEOUT retry: %d\n", retry);
+            }
+        }
+    }
+    // here m_out_status == BUF_SUCCESS
+    if (m_out_status != BUF_SUCCESS) {
+        fatal_error_report(USER_DEFINED_ERROR1, "ASSERT: SOULD BE BUF_SUCCESS");
     }
 
 //    if (m_out_status == BUF_SUCCESS) {   // previous OutPort.write() successfully done
@@ -400,13 +425,13 @@ int CometCdcReader::daq_run()
                 break; // exit retry loop
             }
             else if (retry == (max_retry - 1)) {
-                fprintfwt(stderr, "BUF_TIMEOUT retry: %d for %s\n", retry, mi->ip_address.c_str());
-                fprintfwt(stderr, "retry count due to BUF_TIMEOUT exceeds max_retry: %s\n",
+                fprintfwt(stderr, "retry #2: BUF_TIMEOUT retry: %d for %s\n", retry, mi->ip_address.c_str());
+                fprintfwt(stderr, "retry #2: retry count due to BUF_TIMEOUT exceeds max_retry: %s\n",
                     mi->ip_address.c_str());
-                fatal_error_report(USER_DEFINED_ERROR1, "BUF_TIMEOUT");
+                return 0;
             }
             else {
-                fprintfwt(stderr, "BUF_TIMEOUT retry: %d for %s\n", retry, mi->ip_address.c_str());
+                fprintfwt(stderr, "retry #2: BUF_TIMEOUT retry: %d for %s\n", retry, mi->ip_address.c_str());
             }
         }
         // data was written to OutPort successfully.
