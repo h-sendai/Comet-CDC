@@ -212,16 +212,16 @@ int CometCdcReader::daq_start()
                   << m_module_list[i].Sock.getSockFd() << std::endl;
     }
 
-    // Epoll handler and data structure
+    // Epoll handler
     m_epfd = epoll_create(m_module_list.size());
     if (m_epfd < 0) {
         warn("epoll_create: ");
         fatal_error_report(USER_DEFINED_ERROR1, "EPOLL FD CREATION ERROR");
     }
-
     // debug
     std::cerr << "m_epfd: " << m_epfd << std::endl;
 
+    // Epoll: register the watch socket
     struct epoll_event ev;
     for (unsigned int i = 0; i < m_module_list.size(); i++) {
         memset(&ev, 0, sizeof(ev));
@@ -272,17 +272,19 @@ int CometCdcReader::daq_stop()
 {
     std::cerr << "*** CometCdcReader::stop" << std::endl;
 
+    // epoll: remove the watch socket
     for (unsigned int i = 0; i < m_module_list.size(); i++) {
         if (epoll_ctl(m_epfd, EPOLL_CTL_DEL, m_module_list[i].Sock.getSockFd(), NULL) < 0) {
             warn("epoll_ctl DEL for %s", m_module_list[i].ip_address.c_str());
         }
         m_module_list[i].Sock.disconnect();
     }
+    // epoll: destroy epoll handler
     if (close(m_epfd) < 0) {
         warn("close for epoll file descriptor");
         fatal_error_report(USER_DEFINED_ERROR1, "CLOSE ERROR FOR EPOLL FD");
     }
-
+    // epoll: remove epoll_wait return data buffer
     if (m_ev_ret != NULL) {
         free(m_ev_ret);
     }
@@ -398,6 +400,7 @@ int CometCdcReader::daq_run()
                 break; // exit retry loop
             }
             else if (retry == (max_retry - 1)) {
+                fprintfwt(stderr, "BUF_TIMEOUT retry: %d for %s\n", retry, mi->ip_address.c_str());
                 fprintfwt(stderr, "retry count due to BUF_TIMEOUT exceeds max_retry: %s\n",
                     mi->ip_address.c_str());
                 fatal_error_report(USER_DEFINED_ERROR1, "BUF_TIMEOUT");
@@ -406,6 +409,7 @@ int CometCdcReader::daq_run()
                 fprintfwt(stderr, "BUF_TIMEOUT retry: %d for %s\n", retry, mi->ip_address.c_str());
             }
         }
+        // data was written to OutPort successfully.
         inc_sequence_num();
         inc_total_data_size(m_read_byte_size);
     } // epoll readable loop
