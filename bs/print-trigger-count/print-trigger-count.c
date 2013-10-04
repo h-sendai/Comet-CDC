@@ -56,9 +56,6 @@ int main(int argc, char *argv[])
         n = fread(buf, 1, fread_len, fp);
         if (n == 0) {
             if (feof(fp)) {
-                if (fclose(fp) != 0) {
-                    err(1, "flcose");
-                }
                 break;
             }
             else if (ferror(fp)) {
@@ -76,7 +73,7 @@ int main(int argc, char *argv[])
         }
         else if (n != fread_len) {
             fprintf(stderr, "short read: %d\n", n);
-            exit(0);
+            break;
         }
         else {
             trigger_p = (unsigned int *)&buf[8];
