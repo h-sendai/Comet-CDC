@@ -13,3 +13,4 @@ CometCdcLogger/CometCdcLoggerComp
 *.old
 *.0
 *.1
+*.pyc
