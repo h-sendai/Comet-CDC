@@ -82,7 +82,8 @@ int CometCdcReader::daq_dummy()
 
 int CometCdcReader::daq_configure()
 {
-    std::cerr << "*** CometCdcReader::configure" << std::endl;
+    fprintfwt(stderr, "CometCdcReader::configure\n");
+    //std::cerr << "*** CometCdcReader::configure" << std::endl;
 
     ::NVList* paramList;
     paramList = m_daq_service0.getCompParams();
@@ -179,7 +180,8 @@ int CometCdcReader::parse_params(::NVList* list)
 
 int CometCdcReader::daq_unconfigure()
 {
-    std::cerr << "*** CometCdcReader::unconfigure" << std::endl;
+    fprintfwt(stderr, "CometCdcReader::unconfigure\n");
+    //std::cerr << "*** CometCdcReader::unconfigure" << std::endl;
     m_module_list.clear();
 
     return 0;
@@ -187,7 +189,8 @@ int CometCdcReader::daq_unconfigure()
 
 int CometCdcReader::daq_start()
 {
-    std::cerr << "*** CometCdcReader::start" << std::endl;
+    fprintfwt(stderr, "CometCdcReader::start\n");
+    //std::cerr << "*** CometCdcReader::start" << std::endl;
 
     m_out_status = BUF_SUCCESS;
 
@@ -270,7 +273,8 @@ int CometCdcReader::daq_start()
 
 int CometCdcReader::daq_stop()
 {
-    std::cerr << "*** CometCdcReader::stop" << std::endl;
+    fprintfwt(stderr, "CometCdcReader::stop\n");
+    //std::cerr << "*** CometCdcReader::stop" << std::endl;
 
     // epoll: remove the watch socket
     for (unsigned int i = 0; i < m_module_list.size(); i++) {
@@ -414,6 +418,10 @@ int CometCdcReader::daq_run()
             else if (status == DAQMW::Sock::ERROR_FATAL) {
                 std::cerr << "readAll() fatal error for  " << mi->ip_address << std::endl;
                 fatal_error_report(USER_DEFINED_ERROR1, "READLL() FATAL ERROR");
+            }
+            else if (status == DAQMW::Sock::ERROR_NOTSAMESIZE) {
+                std::cerr << "readAll() fatal error for  " << mi->ip_address << std::endl;
+                fatal_error_report(USER_DEFINED_ERROR1, "READLL() NOT SAME SIZE");
             }
         }
 
