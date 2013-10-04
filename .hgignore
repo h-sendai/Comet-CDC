@@ -16,3 +16,4 @@ CometCdcLogger/CometCdcLoggerComp
 *.pyc
 bs/print-trigger-count/data
 bs/print-trigger-count/print-trigger-count
+DaqOperator
