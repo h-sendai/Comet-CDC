@@ -412,15 +412,18 @@ int CometCdcReader::daq_run()
         status = mi->Sock.readAll(mi->buf, m_read_byte_size);
         if (status != DAQMW::Sock::SUCCESS) {
             if (status == DAQMW::Sock::ERROR_TIMEOUT) {
-                std::cerr << "readAll() timeout for " << mi->ip_address << std::endl;
+                fprintfwt(stderr, "readAll() timeout for %s\n", (mi->ip_address).c_str());
+                //std::cerr << "readAll() timeout for " << mi->ip_address << std::endl;
                 fatal_error_report(USER_DEFINED_ERROR1, "READLL() TIMEOUT");
             }
             else if (status == DAQMW::Sock::ERROR_FATAL) {
-                std::cerr << "readAll() fatal error for  " << mi->ip_address << std::endl;
+                fprintfwt(stderr, "readAll() fatal error for %s\n", (mi->ip_address).c_str());
+                //std::cerr << "readAll() fatal error for " << mi->ip_address << std::endl;
                 fatal_error_report(USER_DEFINED_ERROR1, "READLL() FATAL ERROR");
             }
             else if (status == DAQMW::Sock::ERROR_NOTSAMESIZE) {
-                std::cerr << "readAll() fatal error for  " << mi->ip_address << std::endl;
+                fprintfwt(stderr, "readAll() not same size error for %s\n", (mi->ip_address).c_str());
+                //std::cerr << "readAll() not same size  for " << mi->ip_address << std::endl;
                 fatal_error_report(USER_DEFINED_ERROR1, "READLL() NOT SAME SIZE");
             }
         }
