@@ -429,7 +429,7 @@ int CometCdcReader::daq_run()
         }
 
         // Read from one socket done.  Now trying to write outport
-        set_data(m_module_list[i].buf, m_read_byte_size);
+        set_data(mi->buf, m_read_byte_size);
         unsigned int max_retry = 1024;
         for (unsigned int retry = 0; retry < max_retry; retry ++) {
             if (write_OutPort() == 0) { // write success
